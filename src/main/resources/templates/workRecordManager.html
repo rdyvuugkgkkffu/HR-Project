@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <meta charset="UTF-8">
+    <title>考勤管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="stylesheet" href="/layui/css/layui.css" media="all" />
+    <link rel="stylesheet" href="/css/public.css" media="all" />
+
+</head>
+<body class="childrenBody">
+<!-- 数据表格开始-->
+<div>
+    <table class="layui-hide" id="workRecordTable" lay-filter="workRecordTable"></table>
+    <div id="workRecordToolBar" style="display: none;">
+        <button type="button"  lay-event="add" class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-add-1"></span>考勤打卡</button>
+    </div>
+</div>
+<!-- 上班打卡的弹出层开始 -->
+<div style="display: none;padding: 5px" id="addOrUpdateDiv">
+    <form action="" method="post" class="layui-form layui-form-pane" id="dataFrm" lay-filter="dataFrm">
+        <input type="hidden" name="id" id="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label ">工作日期</label>
+            <div class="layui-input-block " >
+                <input type="text"  lay-verify="required"  name="workDate" autocomplete="off" placeholder="工作日期" class="layui-input workDate_1" >
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">打卡时间</label>
+            <div class="layui-input-block">
+                <input type="text"  lay-verify="required"  name="upTime" autocomplete="off" placeholder="上班时间" class="layui-input upTime_1">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="text-align: center;">
+                <button type="button" class="layui-btn" lay-submit="" lay-filter="doSubmit" id="doSubmit" ><span class="layui-icon layui-icon-add-1"></span>提交</button>
+                <button type="reset" class="layui-btn layui-btn-warm" id="dataFrmResetBtn"><span class="layui-icon layui-icon-refresh-1"></span>重置</button>
+            </div>
+        </div>
+    </form>
+</div>
+<script type="text/javascript" src="/layui/layui.js"></script>
+
+<script type="text/javascript">
+    layui.use(['jquery','form','table','layer','laydate'],function(){
+        var $=layui.jquery;
+        var form=layui.form;
+        var table=layui.table;
+        var layer=layui.layer;
+        var laydate=layui.laydate;
+          //初始化时间选择器
+        laydate.render({
+            elem:'#workDate'
+            ,type: 'month'
+        });
+        //加载数据
+        var tableIns=table.render({
+            elem: '#workRecordTable'
+            ,url:'/workRecord/loadAllWorkRecord'
+            ,toolbar: '#workRecordToolBar' //开启头部工具栏，并为其绑定左侧模板
+            ,title: '考勤管理数据表'
+            ,height:'full-77'
+            ,page: true
+            ,cols: [ [
+                {type: 'checkbox', fixed: 'left'}
+                ,{field:'id', title:'ID',align:'center',hide:true}
+                ,{field:'name', title:'员工姓名',align:'center'}
+                ,{field:'workDate', title:'工作日期',align:'center'}
+                ,{field:'upTime', title:'上班时间',align:'center'}
+                ,{field:'downTime', title:'下班时间',align:'center'}
+                ,{field:'status', title:'状态',align:'center',templet:function (d) {
+                        return d.status==0?'<font class="layui-badge layui-bg-green">正常</font>':d.status==1?'<font class="layui-badge layui-bg-red">迟到</font>': d.status == 2 ?'<font class="layui-badge layui-bg-orange">早退</font>':'<font class="layui-badge layui-bg-blue">加班</font>';
+                    }}
+                ,{field:'createTime', title:'创建时间',align:'center'}
+            ] ],
+            done: function (data, curr, count) {
+                //不是第一页时，如果当前返回的数据为0那么就返回上一页
+                if (data.data.length == 0 && curr != 1) {
+                    tableIns.reload({
+                        page: {
+                            curr: curr - 1
+                        }
+                    })
+                }
+            }
+        });
+        //监听工具条的事件
+        table.on("toolbar(workRecordTable)",function(obj){
+            switch(obj.event){
+                case 'add':
+                    openAddLayer();
+                    break;
+            };
+        });
+        //监听行工具条的事件
+        table.on("tool(workRecordTable)",function(obj){
+            var data = obj.data;
+            switch(obj.event){
+                case 'update':
+                    openUpdateworkRecordLayer(data);
+                    break;
+                case 'delete':
+                    deleteworkRecord(data);
+                    break;
+
+            };
+        });
+        var mainIndex;
+        var url;
+        var newDate = '';
+        var newDate1 = '';
+        //打开上班的弹出层
+        function openAddLayer() {
+            mainIndex = layer.open({
+                type: 1,
+                content: $("#addOrUpdateDiv"),
+                area: ['800px', '600px'],
+                title: '考勤打卡',
+                maxmin: true,
+                success: function () {
+                    $("#dataFrm")[0].reset();
+                    url = "/workRecord/addWorkRecord";
+                    // getLangDate();
+                    $(".workDate_1").attr({"value":"2024-03-26","disabled":""});
+                    $(".upTime_1").attr({"value":"21:01:00","disabled":""});
+                    function dateFilter(date){
+                        if(date < 10){return "0"+date;}
+                        return date;
+                    }
+                    function getLangDate() {
+                        var dateObj = new Date(); //表示当前系统时间的Date对象
+                        var year = dateObj.getFullYear(); //当前系统时间的完整年份值
+                        var month = dateObj.getMonth() + 1; //当前系统时间的月份值
+                        var date = dateObj.getDate(); //当前系统时间的月份中的日
+                        var day = dateObj.getDay(); //当前系统时间中的星期值
+                        var weeks = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+                        var hour = dateObj.getHours(); //当前系统时间的小时值
+                        var minute = dateObj.getMinutes(); //当前系统时间的分钟值
+                        var second = dateObj.getSeconds(); //当前系统时间的秒钟值
+                        newDate = dateFilter(year) + "-" + dateFilter(month) + "-" + dateFilter(date);
+                        newDate1 = dateFilter(hour) + ":" + dateFilter(minute) + ":" + dateFilter(second);
+                        $(".workDate_1").attr({"value":newDate,"disabled":""});
+                        $(".upTime_1").attr({"value":newDate1,"disabled":""});
+                    }
+                }
+            });
+        };
+
+        //保存
+        form.on("submit(doSubmit)",function(data){
+            $.post(url,data.field,function(res){
+                if(res.code==200){
+                    tableIns.reload();
+                }
+                layer.msg(res.msg);
+                layer.close(mainIndex);
+            })
+            return false;
+        });
+        form.on("submit(doSubmit1)",function(data){
+            $.post(url,data.field,function(res){
+                if(res.code==200){
+                    tableIns.reload();
+                }
+                layer.msg(res.msg);
+                layer.close(mainIndex);
+            })
+            return false;
+        });
+    });
+</script>
+</body>
+</html>

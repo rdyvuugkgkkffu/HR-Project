@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <meta charset="UTF-8">
+    <title>绩效管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="stylesheet" href="/layui/css/layui.css" media="all" />
+    <link rel="stylesheet" href="/css/public.css" media="all" />
+
+</head>
+<body class="childrenBody">
+<!-- 数据表格开始-->
+<div>
+    <table class="layui-hide" id="trainPlanTable" lay-filter="trainPlanTable"></table>
+    <div id="trainPlanToolBar" style="display: none;">
+
+        <button type="button"  lay-event="add" shiro:hasPermission="trainPlan:create"   class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-add-1"></span>添加</button>
+        <button type="button" lay-event="batchDelete" shiro:hasPermission="trainPlan:delete"   class="layui-btn layui-btn-sm layui-btn-danger" ><span class="layui-icon layui-icon-delete"></span>批量删除</button>
+    </div>
+
+    <div id="trainPlanRowBar" style="display: none;">
+        <button type="button" lay-event="update" shiro:hasPermission="trainPlan:update"   class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-edit"></span>编辑</button>
+        <button type="button" lay-event="delete" shiro:hasPermission="trainPlan:delete"  class="layui-btn layui-btn-sm layui-btn-danger" ><span class="layui-icon layui-icon-delete"></span>删除</button>
+        <!--            <button type="button" lay-event="show" class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-about"></span>查看</button>-->
+    </div>
+</div>
+<!-- 添加和修改的弹出层开始 -->
+<div style="display: none;padding: 5px" id="addOrUpdateDiv">
+    <form action="" method="post" class="layui-form layui-form-pane" id="dataFrm" lay-filter="dataFrm">
+        <div class="layui-form-item">
+            <label class="layui-form-label">培训主题</label>
+            <div class="layui-input-block">
+                <input type="hidden" name="id" id="id">
+                <input type="text" name="title"  lay-verify="required" autocomplete="off"  placeholder="培训主题" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">培训内容</label>
+            <div class="layui-input-block">
+                <input type="text" name="content"  lay-verify="required" autocomplete="off" placeholder="培训内容" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">培训时间</label>
+            <div class="layui-input-block">
+                <input type="text" name="trainDate"  id="trainDate" lay-verify="required" autocomplete="off" placeholder="培训时间" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">培训人员</label>
+            <div class="layui-input-block">
+                <input type="text" name="participant"  lay-verify="required" autocomplete="off" placeholder="培训人员" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="text-align: center;">
+                <button type="button" class="layui-btn" lay-submit="" lay-filter="doSubmit" id="doSubmit" ><span class="layui-icon layui-icon-add-1"></span>提交</button>
+                <button type="reset" class="layui-btn layui-btn-warm" id="dataFrmResetBtn"><span class="layui-icon layui-icon-refresh-1"></span>重置</button>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- 添加和修改的弹出层结束 -->
+
+
+<script type="text/javascript" src="/layui/layui.js"></script>
+
+<script type="text/javascript">
+    layui.use(['jquery','form','table','layer','laydate'],function(){
+        var $=layui.jquery;
+        var form=layui.form;
+        var table=layui.table;
+        var layer=layui.layer;
+        var laydate=layui.laydate;
+          //   初始化时间选择器
+        laydate.render({
+            elem:'#trainDate',
+            type:'datetime'
+        });
+
+        //加载 数据
+        var tableIns=table.render({
+            elem: '#trainPlanTable'
+            ,url:'/trainPlan/loadAlltrainPlan'
+            ,toolbar: '#trainPlanToolBar' //开启头部工具栏，并为其绑定左侧模板
+            ,title: '培训计划数据表'
+            ,height:'full-77'
+            ,page: true
+            ,cols: [ [
+                {type: 'checkbox', fixed: 'left'}
+                ,{field:'id', title:'ID',align:'center'}
+                ,{field:'title', title:'培训主题',align:'center'}
+                ,{field:'content', title:'培训内容',align:'center'}
+                ,{field:'trainDate', title:'培训时间',align:'center'}
+                ,{field:'participant', title:'参加人员',align:'center'}
+                ,{fixed: 'right', title:'操作', toolbar: '#trainPlanRowBar',align:'center'}
+            ] ]
+        });
+        //监控模糊查询按钮事件
+        form.on("submit(doSearch)", function (data) {
+            tableIns.reload({
+                where: data.field,
+                page: {
+                    curr: 1
+                }
+            });
+            return false;
+        });
+
+        //监听工具条的事件
+        table.on("toolbar(trainPlanTable)",function(obj){
+            switch(obj.event){
+                case 'batchDelete':
+                    batchDelete();
+                    break;
+                case 'add':
+                    openAddLayer();
+                    break;
+            };
+        });
+
+        //监听行工具条的事件
+        table.on("tool(trainPlanTable)",function(obj){
+            var data = obj.data; //获得当前行数据
+            switch(obj.event){
+                case 'update':
+                    openUpdatetrainPlanLayer(data);
+                    break;
+                case 'delete':
+                    deletetrainPlan(data);
+                    break;
+
+            };
+        });
+        var mainIndex;
+        var url;
+        //打开添加的弹出层
+        function openAddLayer(){
+            mainIndex=layer.open({
+                type:1,
+                content:$("#addOrUpdateDiv"),
+                area:['800px','600px'],
+                title:'发布考核',
+                maxmin: true,
+                success:function(){
+                    $("#dataFrm")[0].reset();
+                    url="/trainPlan/addtrainPlan";
+                }
+            });
+        };
+
+        //打开修改的弹出层
+        function openUpdatetrainPlanLayer(data){
+            mainIndex=layer.open({
+                type:1,
+                content:$("#addOrUpdateDiv"),
+                area:['800px','600px'],
+                title:'修改培训计划',
+                maxmin: true,
+                success:function(){
+                    form.val("dataFrm",data)
+                    url="/trainPlan/updateTrainPlan";
+                }
+
+            });
+        };
+
+        //保存
+        form.on("submit(doSubmit)",function(data){
+            console.log(JSON.stringify(data.field));
+            $.post(url,data.field,function(res){
+                if(res.code==200){
+                    tableIns.reload();
+                }
+                layer.msg(res.msg);
+                layer.close(mainIndex);
+            })
+            return false;
+        });
+
+        //删除
+        function deletetrainPlan(data){
+            layer.confirm('你确定要删除这条数据吗?', {icon: 3, title:'提示'}, function(index){
+                $.post("/trainPlan/deleteTrainPlan",{id:data.id},function(res){
+                    if(res.code==200){
+                        tableIns.reload();
+                    }
+                    layer.msg(res.msg);
+                });
+                layer.close(index);
+            });
+        };
+
+        //批量删除
+        function  batchDelete(){
+            //得到选中行
+            var checkStatus = table.checkStatus('trainPlanTable');
+            var dataLength=checkStatus.data.length;
+            if(dataLength>0){
+                layer.confirm('你确定要删除这些数据吗?', {icon: 3, title:'提示'}, function(index){
+                    var data=checkStatus.data; //获取选中行的数据
+                    var ids="";
+                    $.each(data,function(index,item){
+                        if(index==0){
+                            ids+="ids="+item.id;
+                        }else{
+                            ids+="&ids="+item.id;
+                        }
+                    })
+                    $.post("/trainPlan/batchDeleteTrainPlan",ids,function(res){
+                        if(res.code==200){
+                            tableIns.reload();
+                        }
+                        layer.msg(res.msg);
+                    })
+                    layer.close(index);
+                });
+
+            }else{
+                layer.msg("请选中操作行");
+            }
+        };
+
+    });
+
+
+</script>
+</body>
+</html>

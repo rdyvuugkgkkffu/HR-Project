@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <meta charset="UTF-8">
+    <title>绩效管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="stylesheet" href="/layui/css/layui.css" media="all" />
+    <link rel="stylesheet" href="/css/public.css" media="all" />
+</head>
+<body class="childrenBody">
+<!-- 数据表格开始-->
+<div>
+    <table class="layui-hide" id="meritTable" lay-filter="meritTable"></table>
+    <div id="meritToolBar" style="display: none;">
+        <button type="button" lay-event="add" class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-add-1"></span>添加</button>
+        <button type="button" lay-event="batchDelete" class="layui-btn layui-btn-sm layui-btn-danger" ><span class="layui-icon layui-icon-delete"></span>批量删除</button>
+    </div>
+
+    <div id="meritRowBar" style="display: none;">
+        <button type="button" lay-event="update"  class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-edit"></span>编辑</button>
+        <button type="button" lay-event="delete"  class="layui-btn layui-btn-sm layui-btn-danger" ><span class="layui-icon layui-icon-delete"></span>删除</button>
+    </div>
+</div>
+<!-- 添加和修改的弹出层开始 -->
+<div style="display: none;padding: 5px" id="addOrUpdateDiv">
+    <form action="" method="post" class="layui-form layui-form-pane" id="dataFrm" lay-filter="dataFrm">
+        <div class="layui-form-item">
+            <label class="layui-form-label">设置日期</label>
+            <div class="layui-input-block">
+                <input type="hidden" name="id" id="id">
+                <input type="text" name="setDate" id="setTime" lay-verify="required" autocomplete="off"  placeholder="yyyy-MM-dd HH:mm:ss" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">周考核量</label>
+            <div class="layui-input-block">
+                <input type="text" name="weekQuota" id="weekquota" lay-verify="required|number|week" autocomplete="off" placeholder="请输入周考核量" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">月考核量</label>
+            <div class="layui-input-block">
+                <input type="text" name="monthQuota" id="monthquota" lay-verify="required|number" autocomplete="off" placeholder="请输入月考核量" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="text-align: center;">
+                <button type="button" class="layui-btn" lay-submit="" lay-filter="doSubmit" id="doSubmit" ><span class="layui-icon layui-icon-add-1"></span>提交</button>
+                <button type="reset" class="layui-btn layui-btn-warm" id="dataFrmResetBtn"><span class="layui-icon layui-icon-refresh-1"></span>重置</button>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- 添加和修改的弹出层结束 -->
+
+<script type="text/javascript" src="/layui/layui.js"></script>
+<script type="text/javascript">
+    layui.use(['jquery','form','table','layer','laydate'],function(){
+        var $=layui.jquery;
+        var form=layui.form;
+        var table=layui.table;
+        var layer=layui.layer;
+        var laydate=layui.laydate;
+        //初始化时间选择器
+        laydate.render({
+            elem:'#setTime',
+            type:'datetime'
+        });
+
+        //添加验证规则
+        form.verify({
+            week : function(value, item){
+                if(value >$("#monthquota").val()){
+                    return "数值设置不合理，请重新输入！";
+                }
+            }
+        })
+        //加载 数据
+        var tableIns=table.render({
+            elem: '#meritTable'
+            ,url:'/merit/loadAllMerit'
+            ,toolbar: '#meritToolBar' //开启头部工具栏，并为其绑定左侧模板
+            ,title: '绩效结果数据表'
+            ,height:'full-77'
+            ,page: true
+            ,cols: [ [
+                {type: 'checkbox', fixed: 'left'}
+                ,{field:'id', title:'ID',align:'center'}
+                ,{field:'setDate', title:'开始时间',align:'center'}
+                ,{field:'weekQuota', title:'周考核量',align:'center'}
+                ,{field:'monthQuota', title:'月考核量',align:'center'}
+                ,{fixed: 'right', title:'操作', toolbar: '#meritRowBar',align:'center'}
+            ] ]
+        });
+
+        //监听工具条的事件
+        table.on("toolbar(meritTable)",function(obj){
+            switch(obj.event){
+                case 'batchDelete':
+                    batchDelete();
+                    break;
+                case 'add':
+                    openAddLayer();
+                    break;
+            };
+        });
+
+        //监听行工具条的事件
+        table.on("tool(meritTable)",function(obj){
+            var data = obj.data; //获得当前行数据
+            switch(obj.event){
+                case 'update':
+                    openUpdateMeritLayer(data);
+                    break;
+                case 'delete':
+                    deletemerit(data);
+                    break;
+
+            };
+        });
+
+        var mainIndex;
+        var url;
+        //打开添加的弹出层
+        function openAddLayer(){
+            mainIndex=layer.open({
+                type:1,
+                content:$("#addOrUpdateDiv"),
+                area:['800px','600px'],
+                title:'发布考核',
+                maxmin: true,
+                success:function(){
+                    $("#dataFrm")[0].reset();
+                    url="/merit/addMerit";
+                }
+            });
+        };
+
+        //打开修改的弹出层
+        function openUpdateMeritLayer(data){
+            mainIndex=layer.open({
+                type:1,
+                content:$("#addOrUpdateDiv"),
+                area:['800px','600px'],
+                title:'修改考核',
+                maxmin: true,
+                success:function(){
+                    form.val("dataFrm",data)
+                    url="/merit/updateMerit";
+                }
+            });
+        };
+
+        //保存
+        form.on("submit(doSubmit)",function(data){
+            console.log(JSON.stringify(data.field));
+            $.post(url,data.field,function(res){
+                if(res.code==200){
+                    tableIns.reload();
+                }
+                layer.msg(res.msg);
+                layer.close(mainIndex);
+            })
+            return false;
+        });
+
+        //删除
+        function deletemerit(data){
+            layer.confirm('你确定要删除这条数据吗?', {icon: 3, title:'提示'}, function(index){
+                $.post("/merit/deleteMerit",{id:data.id},function(res){
+                    if(res.code==200){
+                        tableIns.reload();
+                    }
+                    layer.msg(res.msg);
+                });
+                layer.close(index);
+            });
+        };
+
+        //批量删除
+        function  batchDelete(){
+            //得到选中行
+            var checkStatus = table.checkStatus('meritTable');
+            var dataLength=checkStatus.data.length;
+            if(dataLength>0){
+                layer.confirm('你确定要删除这些数据吗?', {icon: 3, title:'提示'}, function(index){
+                    var data=checkStatus.data; //获取选中行的数据
+                    var ids="";
+                    $.each(data,function(index,item){
+                        if(index==0){
+                            ids+="ids="+item.id;
+                        }else{
+                            ids+="&ids="+item.id;
+                        }
+                    })
+                    $.post("/merit/batchDeleteMerit",ids,function(res){
+                        if(res.code==200){
+                            tableIns.reload();
+                        }
+                        layer.msg(res.msg);
+                    })
+                    layer.close(index);
+                });
+
+            }else{
+                layer.msg("请选中操作行")
+            }
+        };
+    });
+</script>
+
+</body>
+</html>

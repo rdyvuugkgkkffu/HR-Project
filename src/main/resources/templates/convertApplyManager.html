@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:shiro="http://www.pollix.at/thymeleaf/shiro">
+<head>
+    <meta charset="UTF-8">
+    <title>考勤管理</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="stylesheet" href="/layui/css/layui.css" media="all" />
+    <link rel="stylesheet" href="/css/public.css" media="all" />
+
+</head>
+<body class="childrenBody">
+<!-- 数据表格开始-->
+<div>
+    <table class="layui-hide" id="convertApplyTable" lay-filter="convertApplyTable"></table>
+
+    <div id="convertApplyToolBar" style="display: none;">
+        <button type="button"  lay-event="add"  class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-add-1"></span>添加</button>
+    </div>
+
+    <div id="convertApplyRowBar" style="display: none;">
+      <button type="button" lay-event="update"  class="layui-btn layui-btn-sm " ><span class="layui-icon layui-icon-edit"></span>审核</button>
+    </div>
+</div>
+<!-- 新增审核的弹出层开始 -->
+<div style="display: none;padding: 5px" id="addOrUpdateDiv">
+    <form action="" method="post" class="layui-form layui-form-pane" id="dataFrm" lay-filter="dataFrm">
+        <input type="hidden" name="id" id="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label ">申请日期</label>
+            <div class="layui-input-block " >
+                <input type="text" name="applyDate"  id="applyDate" class="layui-input input-radius applyDate">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">申请内容</label>
+            <div class="layui-input-block">
+                <input type="text"  lay-verify="required"  name="applyContent" autocomplete="off" placeholder="申请内容" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="text-align: center;">
+                <button type="button" class="layui-btn" lay-submit="" lay-filter="doSubmit" id="doSubmit" ><span class="layui-icon layui-icon-add-1"></span>提交</button>
+                <button type="reset" class="layui-btn layui-btn-warm" id="dataFrmResetBtn"><span class="layui-icon layui-icon-refresh-1"></span>重置</button>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- 审核的弹出层开始 -->
+<div style="display: none;padding: 5px" id="addOrUpdateDiv1">
+    <form action="" method="post" class="layui-form layui-form-pane" id="dataFrm1" lay-filter="dataFrm1">
+        <div class="layui-form-item">
+            <label class="layui-form-label ">申请人</label>
+            <div class="layui-input-block " >
+                <input type="hidden" name="id" >
+                <input type="hidden"   name="applyUserId" autocomplete="off" placeholder="工作日期" class="layui-input " >
+                <input type="text"  lay-verify="required"  name="applyName" disabled autocomplete="off" placeholder="申请人" class="layui-input " >
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">申请日期</label>
+            <div class="layui-input-block">
+                <input type="text"  lay-verify="required"  name="applyDate" disabled autocomplete="off" placeholder="申请日期" class="layui-input " >
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">申请内容</label>
+            <div class="layui-input-block">
+                <input type="text"  lay-verify="required"  name="applyContent" disabled autocomplete="off" placeholder="申请内容" class="layui-input " >
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">是否通过</label>
+            <div class="layui-input-inline">
+                <input type="radio" name="status" value="2"  title="通过" >
+                <input type="radio" name="status" value="1" title="不通过"  checked>
+            </div>
+        </div>
+
+        <div class="layui-form-item">
+            <label class="layui-form-label">审批意见</label>
+            <div class="layui-input-block">
+                <input type="text"  lay-verify="required"  name="approvalOpinion" autocomplete="off" placeholder="审批意见" class="layui-input " >
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <div class="layui-input-block" style="text-align: center;">
+                <button type="button" class="layui-btn" lay-submit="" lay-filter="doSubmit1" id="doSubmit1" ><span class="layui-icon layui-icon-add-1"></span>提交</button>
+                <button type="reset" class="layui-btn layui-btn-warm" id="dataFrmResetBtn1"><span class="layui-icon layui-icon-refresh-1"></span>重置</button>
+            </div>
+        </div>
+    </form>
+</div>
+<!-- 添加和修改的弹出层结束 -->
+<script type="text/javascript" src="/layui/layui.js"></script>
+<script type="text/javascript">
+    layui.use(['jquery','form','table','layer','laydate'],function(){
+        var $=layui.jquery;
+        var form=layui.form;
+        var table=layui.table;
+        var layer=layui.layer;
+        var laydate=layui.laydate;
+          //   初始化时间选择器
+        laydate.render({
+            elem:'#applyDate'
+            ,type: 'date'
+        });
+        laydate.render({
+            elem:'#approvalDate'
+            ,type: 'date'
+        });
+
+        //加载 数据
+        var tableIns=table.render({
+            elem: '#convertApplyTable'
+            ,url:'/convertApply/loadAllconvertApply'
+            ,toolbar: '#convertApplyToolBar' //开启头部工具栏，并为其绑定左侧模板
+            ,title: '考勤管理数据表'
+            ,height:'full-77'
+            ,page: true
+            ,cols: [ [
+                {type: 'checkbox', fixed: 'left'}
+                ,{field:'id', title:'ID',align:'center',hide:true}
+                ,{field:'applyDate', title:'申请日期',align:'center',width:130}
+                ,{field:'applyName', title:'申请人',align:'center',width:130}
+                ,{field:'applyContent', title:'申请内容',align:'center'}
+                ,{field:'approvalDate', title:'审批日期',align:'center',width:130}
+                ,{field:'approvalUserId', title:'审批人id',align:'center',hide:true}
+                ,{field:'approvalName', title:'审批人',align:'center',width:130}
+                ,{field:'approvalOpinion', title:'审批意见',align:'center',width:100}
+                ,{field:'status', title:'状态',align:'center',width:80,templet:function (d) {
+                        return d.status==0?'<font color="blue" class="layui-badge layui-bg-blue">审核中</font>':d.status==1?'<font color="red" class="layui-badge layui-bg-red">未通过</font>': '<font color="red" class="layui-badge layui-bg-green">通过</font>';
+                    }}
+                ,{field:'createTime', title:'创建时间',align:'center',width:180}
+                ,{fixed: 'right', title:'操作', toolbar: '#convertApplyRowBar',align:'center'}
+            ] ],
+            done: function (data, curr, count) {
+                //不是第一页时，如果当前返回的数据为0那么就返回上一页
+                if (data.data.length == 0 && curr != 1) {
+                    tableIns.reload({
+                        page: {
+                            curr: curr - 1
+                        }
+                    })
+                }
+            }
+        });
+        //监控模糊查询按钮事件
+        form.on("submit(doSearch)", function (data) {
+            tableIns.reload({
+                where: data.field,
+                page: {
+                    curr: 1
+                }
+            });
+            return false;
+        });
+        //监听工具条的事件
+        table.on("toolbar(convertApplyTable)",function(obj){
+            switch(obj.event){
+                case 'add':
+                    openAddLayer();
+                    break;
+            };
+        });
+
+        //监听行工具条的事件
+        table.on("tool(convertApplyTable)",function(obj){
+            var data = obj.data;
+            switch(obj.event){
+                case 'update':
+                    if(data.status != 0){
+                        layer.msg('已审核的申请不能重复审核');
+                        return
+                    }
+                    openUpdateconvertApplyLayer(data);
+                    break;
+                case 'delete':
+                    deleteconvertApply(data);
+                    break;
+            };
+        });
+        var mainIndex;
+        var url;
+        //打开添加申请的弹出层
+        function openAddLayer() {
+            mainIndex = layer.open({
+                type: 1,
+                content: $("#addOrUpdateDiv"),
+                area: ['800px', '600px'],
+                title: '添加申请',
+                maxmin: true,
+                success: function () {
+                    $("#dataFrm")[0].reset();
+                    url = "/convertApply/addConvertApply";
+                    getLangDate();
+                    function dateFilter(date){
+                        if(date < 10){return "0"+date;}
+                        return date;
+                    }
+                    function getLangDate() {
+                        var dateObj = new Date(); //表示当前系统时间的Date对象
+                        var year = dateObj.getFullYear(); //当前系统时间的完整年份值
+                        var month = dateObj.getMonth() + 1; //当前系统时间的月份值
+                        var date = dateObj.getDate(); //当前系统时间的月份中的日
+                        var day = dateObj.getDay(); //当前系统时间中的星期值
+                        var weeks = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+                        var hour = dateObj.getHours(); //当前系统时间的小时值
+                        var minute = dateObj.getMinutes(); //当前系统时间的分钟值
+                        var second = dateObj.getSeconds(); //当前系统时间的秒钟值
+                        newDate = dateFilter(year) + "-" + dateFilter(month) + "-" + dateFilter(date);
+                        $(".applyDate").attr({"value":newDate,"disabled":""});
+                    }
+                }
+            });
+        };
+
+        //打开修改的弹出层
+        function openUpdateconvertApplyLayer(data){
+            mainIndex=layer.open({
+                type:1,
+                content:$("#addOrUpdateDiv1"),
+                area:['800px','600px'],
+                title:'下班打卡',
+                maxmin: true,
+                success:function(){
+                    url="/convertApply/updateConvertApply";
+                    getLangDate();
+                    //值小于10时，在前面补0
+                    function dateFilter(date){
+                        if(date < 10){return "0"+date;}
+                        return date;
+                    }
+                    function getLangDate() {
+                        var dateObj = new Date(); //表示当前系统时间的Date对象
+                        var year = dateObj.getFullYear(); //当前系统时间的完整年份值
+                        var month = dateObj.getMonth() + 1; //当前系统时间的月份值
+                        var date = dateObj.getDate(); //当前系统时间的月份中的日
+                        var day = dateObj.getDay(); //当前系统时间中的星期值
+                        var weeks = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+                        var hour = dateObj.getHours(); //当前系统时间的小时值
+                        var minute = dateObj.getMinutes(); //当前系统时间的分钟值
+                        var second = dateObj.getSeconds(); //当前系统时间的秒钟值
+                        newDate = dateFilter(year) + "-" + dateFilter(month) + "-" + dateFilter(date);
+                        newDate1 = dateFilter(hour) + ":" + dateFilter(minute) + ":" + dateFilter(second);
+                        $(".workMonth_2").attr({"value":newDate,"disabled":""});
+                        $(".downTime_1").attr({"disabled":""}) ;
+                        data.downTime =newDate1;
+                        form.val("dataFrm1",data);
+                    }
+                }
+            });
+        }
+        //保存
+        form.on("submit(doSubmit)",function(data){
+            $.post(url,data.field,function(res){
+                if(res.code==200){
+                    tableIns.reload();
+                }
+                layer.msg(res.msg);
+                layer.close(mainIndex);
+            })
+            return false;
+        });
+        form.on("submit(doSubmit1)",function(data){
+            $.post(url,data.field,function(res){
+                if(res.code==200){
+                    tableIns.reload();
+                }
+                layer.msg(res.msg);
+                layer.close(mainIndex);
+            })
+            return false;
+        });
+    });
+</script>
+</body>
+</html>
